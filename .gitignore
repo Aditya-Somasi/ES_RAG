@@ -11,3 +11,6 @@ wheels/
 .env
 test
 data
+.python-version
+uv.lock
+pyproject.toml
