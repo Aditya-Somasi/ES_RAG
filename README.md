@@ -1,53 +1,54 @@
-# Production-Grade RAG Chatbot
+# RAG Chatbot with Elasticsearch
 
-A complete, production-ready Retrieval-Augmented Generation (RAG) chatbot built with LangChain (LCEL), Elasticsearch, Azure OpenAI, Groq, and Streamlit.
+A production-ready Retrieval-Augmented Generation (RAG) chatbot that lets you ask questions about your documents. Built with LangChain, Elasticsearch, Azure OpenAI, Groq, and Streamlit.
 
-## 🏗️ Architecture
+![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)
+![Elasticsearch 8.x](https://img.shields.io/badge/elasticsearch-8.x-yellow.svg)
+![Streamlit](https://img.shields.io/badge/streamlit-latest-red.svg)
 
-### Technology Stack
+## ✨ Features
 
-- **LangChain (LCEL)**: Orchestration with full LCEL patterns
-- **Elasticsearch**: Vector + keyword hybrid search (Free Tier compatible)
-- **Azure OpenAI**: Primary LLM for complex queries
-- **Groq**: Secondary LLM for short, fast queries
-- **Streamlit**: Professional chat UI with streaming
-- **LangSmith**: Full observability and tracing
-- **HuggingFace Embeddings**: all-MiniLM-L6-v2 for vector search
-
-### Key Features
-
-✅ **History-Aware Retrieval**: Context-aware query rewriting  
-✅ **Hybrid Search**: Combined vector + keyword retrieval (hard-coded for ES Free Tier)  
-✅ **LLM Routing**: Automatic selection based on query complexity  
-✅ **Confidence Scoring**: Multi-factor retrieval confidence assessment  
-✅ **Grounded Responses**: Strict answer grounding to prevent hallucinations  
-✅ **Source Citations**: Exact text spans with real metadata  
-✅ **Streaming UI**: ChatGPT-like streaming responses  
-✅ **Token Tracking**: Azure OpenAI usage and cost estimation  
-✅ **Full Observability**: LangSmith tracing + structured logging  
-✅ **Production Resilience**: Health checks, failover, error handling
+- **Hybrid Search** - Combined BM25 + semantic vector search with intelligent reranking
+- **Multi-LLM Routing** - Azure OpenAI for complex queries, Groq Llama for fast responses
+- **Conversation Memory** - SQLite-backed persistent chat history with 24h TTL
+- **Document Ingestion** - Process PDF, DOCX, XLSX, PPTX, TXT, CSV files
+- **Real-time Streaming** - ChatGPT-like word-by-word response display
+- **Source Citations** - Perplexity-style inline sources with confidence scores
+- **Production Ready** - Error handling, logging, health checks
 
 ---
 
 ## 📁 Project Structure
 
 ```
-.
-├── app/
-│   ├── main.py              # Entry point with health checks
-│   └── ui.py                # Streamlit chat interface
-├── core/
-│   ├── chains.py            # LCEL RAG chains with routing
-│   ├── retriever.py         # Elasticsearch hybrid retriever
-│   ├── models.py            # LLM initialization (Azure + Groq)
-│   └── memory.py            # In-memory session store
-├── utils/
-│   ├── config.py            # Environment config with validation
-│   ├── logging.py           # Structured logging with colorlog
-│   └── token_counter.py     # Token counting and cost estimation
-├── .env.example             # Environment variables template
-├── requirements.txt         # Python dependencies
-└── README.md                # This file
+RAG_ES/
+├── app/                          # Streamlit Chat Application
+│   ├── main.py                   # Entry point with health checks
+│   └── ui.py                     # Chat interface with streaming
+│
+├── core/                         # RAG Chain Logic
+│   ├── chains.py                 # LCEL RAG chain with LLM routing
+│   ├── retriever.py              # Elasticsearch hybrid retriever
+│   ├── models.py                 # LLM initialization (Azure + Groq)
+│   └── memory.py                 # SQLite session store with TTL
+│
+├── utils/                        # Utilities
+│   ├── config.py                 # Pydantic configuration
+│   ├── logging.py                # Unified structured logging
+│   └── token_counter.py          # Token counting & cost estimation
+│
+├── ElasticSearch/                # Document Indexing Pipeline
+│   ├── app.py                    # Streamlit UI for indexing
+│   ├── pipeline.py               # Core indexing & search logic
+│   ├── document_processor.py     # PDF/DOCX/Excel extraction
+│   ├── embedding_model.py        # Sentence-transformers embeddings
+│   ├── config.py                 # Search configuration
+│   └── utils.py                  # ES utilities
+│
+├── .env.example                  # Environment template
+├── requirements.txt              # Dependencies
+├── run_chatbot.py                # Launcher script
+└── README.md                     # This file
 ```
 
 ---
@@ -56,453 +57,259 @@ A complete, production-ready Retrieval-Augmented Generation (RAG) chatbot built 
 
 ### Prerequisites
 
-- Python 3.11+
-- Elasticsearch 8.x running locally (port 9200)
-- Pre-indexed documents in Elasticsearch
-- Azure OpenAI API access
-- Groq API access
-- LangSmith account (optional, for tracing)
+- **Python 3.11+**
+- **uv** - Fast Python package manager ([install guide](https://docs.astral.sh/uv/getting-started/installation/))
+- **Elasticsearch 8.x** running locally
+- **Azure OpenAI** API access
+- **Groq** API access (free tier available at [console.groq.com](https://console.groq.com))
 
-### Installation
-
-1. **Clone repository**
-   ```bash
-   git clone <repo-url>
-   cd rag-chatbot
-   ```
-
-2. **Create virtual environment**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Configure environment**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your API keys and configuration
-   ```
-
-5. **Verify Elasticsearch**
-   ```bash
-   curl http://localhost:9200
-   curl http://localhost:9200/<your-index-name>/_count
-   ```
-
-### Running the Application
+### 1. Install uv (if not already installed)
 
 ```bash
-python app/main.py
+# Windows (PowerShell)
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# Linux/Mac
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Verify installation
+uv --version
 ```
 
-This will:
-1. Run comprehensive startup health checks
-2. Validate all configurations
-3. Test Elasticsearch connection
-4. Test LLM connections (Azure OpenAI + Groq)
-5. Launch Streamlit UI (usually at http://localhost:8501)
+### 2. Clone & Install
+
+```bash
+git clone https://github.com/Aditya-Somasi/ES_RAG.git
+cd ES_RAG
+
+# Create virtual environment with uv
+uv venv
+.venv\Scripts\activate  # Windows
+# source .venv/bin/activate  # Linux/Mac
+
+# Install dependencies (fast with uv!)
+uv pip install -r requirements.txt
+```
+
+### 3. Configure Environment
+
+```bash
+cp .env.example .env
+# Edit .env with your API keys
+```
+
+**Required variables:**
+```bash
+# Azure OpenAI
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+AZURE_OPENAI_API_KEY=your-key
+AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4.1
+
+# Groq (get free key at console.groq.com)
+GROQ_API_KEY=your-groq-key
+
+# Elasticsearch
+ES_HOST=https://localhost:9200
+ES_USER=elastic
+ES_PASSWORD=your-elastic-password
+```
+
+### 4. Start Elasticsearch
+
+```bash
+# Windows (from Elasticsearch folder)
+.\bin\elasticsearch.bat
+
+# Verify it's running
+curl -k -u elastic:your-password https://localhost:9200
+```
+
+### 5. Index Your Documents
+
+```bash
+$env:PYTHONPATH="."  # Windows PowerShell
+# export PYTHONPATH="."  # Linux/Mac
+
+streamlit run ElasticSearch/app.py
+```
+
+This opens a UI where you can:
+1. Connect to Elasticsearch
+2. Create/recreate the index
+3. Upload and process documents (PDF, DOCX, XLSX, etc.)
+4. Test search queries
+
+### 6. Start the Chatbot
+
+```bash
+$env:PYTHONPATH="."
+streamlit run app/ui.py
+```
+
+Or use the launcher:
+```bash
+python run_chatbot.py
+```
+
+---
+
+## 💬 Using the Chatbot
+
+1. **Ask questions** about your indexed documents
+2. **View sources** - Click the sources button to see citations
+3. **Follow-up questions** - The chatbot remembers conversation context
+4. **Switch sessions** - Use sidebar to manage chat history
+
+### Example Questions
+
+```
+What is a perceptron?
+Explain the difference between LSTM and RNN in a table
+What neural network architectures are covered in these documents?
+Compare the McCulloch-Pitts model to the perceptron
+```
+
+---
+
+## 🔧 Module Details
+
+### `app/` - Chat Interface
+
+| File | Description |
+|------|-------------|
+| `ui.py` | Streamlit chat UI with streaming, sources popover, session history |
+| `main.py` | Entry point with health checks for all services |
+
+### `core/` - RAG Pipeline
+
+| File | Description |
+|------|-------------|
+| `chains.py` | RAG chain with history-aware retrieval, LLM routing (Azure/Groq) |
+| `retriever.py` | Wrapper for Elasticsearch hybrid search |
+| `memory.py` | SQLite-backed session store with 24h TTL |
+| `models.py` | LLM initialization with health checks |
+
+### `utils/` - Utilities
+
+| File | Description |
+|------|-------------|
+| `config.py` | Pydantic settings from environment variables |
+| `logging.py` | Unified logging with colored output |
+| `token_counter.py` | Token counting and cost estimation for Azure OpenAI |
+
+### `ElasticSearch/` - Indexing Pipeline
+
+| File | Description |
+|------|-------------|
+| `app.py` | Streamlit UI for document upload and search testing |
+| `pipeline.py` | Core logic: indexing, BM25/KNN/hybrid search, reranking |
+| `document_processor.py` | Text extraction from PDF, DOCX, XLSX, PPTX, TXT, CSV |
+| `embedding_model.py` | Sentence-transformers embedding generation |
+| `config.py` | All search parameters (chunk size, weights, etc.) |
 
 ---
 
 ## ⚙️ Configuration
 
-### Required Environment Variables
-
-Create a `.env` file based on `.env.example`:
-
-```bash
-# Azure OpenAI
-AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
-AZURE_OPENAI_API_KEY=your-key-here
-AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4
-AZURE_OPENAI_API_VERSION=2024-08-01-preview
-
-# Groq
-GROQ_API_KEY=your-key-here
-GROQ_MODEL_NAME=llama-3.3-70b-versatile
-
-# Elasticsearch
-ELASTICSEARCH_URL=http://localhost:9200
-ELASTICSEARCH_INDEX_NAME=documents
-
-# LangSmith (Optional)
-LANGCHAIN_TRACING_V2=true
-LANGCHAIN_API_KEY=your-key-here
-LANGCHAIN_PROJECT=rag-chatbot-production
-
-# RAG Parameters
-RETRIEVAL_TOP_K=5
-CONFIDENCE_THRESHOLD=0.65
-MAX_QUERY_WORDS=2000
-
-# Embedding Model
-EMBEDDING_MODEL_NAME=sentence-transformers/all-MiniLM-L6-v2
-```
-
-### Configuration Validation
-
-The system validates all configurations on startup and fails fast if:
-- Required environment variables are missing
-- LangSmith tracing is enabled but API key is missing
-- Thresholds are out of valid ranges
-- Elasticsearch is unreachable
-- LLMs are unreachable
-
----
-
-## 🔍 Elasticsearch Schema
-
-### Expected Document Structure
-
-The system expects documents indexed as **chunks** with the following metadata:
-
-```json
-{
-  "chunk_text": "The actual text content for LLM context",
-  "doc_id": "unique-document-id",
-  "chunk_id": "chunk-identifier",
-  "filename": "document.pdf",
-  "file_type": "PDF",
-  "page_number": 5,
-  "page_range": "5-7",
-  "sheet_name": "Sheet1",
-  "row_number": 42
-}
-```
-
-### Field Usage
-
-- `chunk_text`: **REQUIRED** - Used as LLM context
-- `doc_id`: Document identifier
-- `chunk_id`: Chunk identifier within document
-- `filename`: Source filename
-- `file_type`: PDF, DOCX, PPTX, EXCEL, TXT
-- `page_number` or `page_range`: For PDF documents
-- `sheet_name`, `row_number`: For Excel documents
-
-**IMPORTANT**: The system treats Elasticsearch as READ-ONLY. It will:
-- ❌ NOT create or modify indices
-- ❌ NOT re-index documents
-- ❌ NOT modify mappings
-- ✅ ONLY retrieve existing chunks
-
----
-
-## 🧠 RAG Pipeline
-
-### 1. Query Processing
-
-```
-User Query → Validate Length → LLM Routing Decision
-                                ↓
-                    Short (<10 words) → Groq
-                    Long (≥10 words) → Azure OpenAI
-```
-
-### 2. History-Aware Retrieval
-
-```
-Chat History + Current Query → Azure OpenAI (rewrite)
-                                      ↓
-                              Standalone Query
-                                      ↓
-                           Elasticsearch Hybrid Search
-                                      ↓
-                        Vector Search + Keyword Search
-                                      ↓
-                        Hard-coded score combination
-                                      ↓
-                            Top-K Documents
-```
-
-### 3. Response Generation
-
-```
-Retrieved Context + Query + Chat History → Selected LLM
-                                              ↓
-                                     Confidence Check
-                                              ↓
-                              High: Answer as-is
-                              Low: Hedge + Answer
-                              None: "I don't know..."
-                                              ↓
-                                    Stream to User
-```
-
-### 4. Confidence Scoring
-
-Confidence is computed using three factors:
-
-- **Top-1 Score (50% weight)**: Highest retrieval score
-- **Score Gap (30% weight)**: Difference between top-1 and top-2
-- **High-Score Count (20% weight)**: Ratio of chunks above threshold
-
-Formula:
-```
-confidence = (top1_score × 0.5) + (score_gap × 0.3) + (high_score_ratio × 0.2)
-```
-
----
-
-## 🛡️ RAG Reliability Features
-
-### 1. Strict Answer Grounding
-
-If context is insufficient:
-```
-"I don't know based on the available documents."
-```
-
-No guessing. No hallucinations.
-
-### 2. Low-Confidence Behavior
-
-When confidence < threshold (default: 0.65):
-```
-"I found some potentially relevant information, but I'm not 
-confident it fully answers your question. Based on the available 
-documents: [answer]"
-```
-
-### 3. Source Transparency
-
-- Show **exact retrieved text** (no summarization)
-- Show **real metadata only** (no invented citations)
-- Display in sidebar for easy verification
-
-### 4. Failure-Safe Defaults
-
-On errors:
-- Elasticsearch failure → "I don't know..."
-- LLM failure → Fallback to alternative LLM (logged)
-- No documents retrieved → "I don't know..."
-- Streaming error → Graceful error message
-
----
-
-## 📊 Observability
-
-### Structured Logging
-
-All operations are logged with:
-- Timestamp
-- Log level (color-coded)
-- Module name
-- Session ID
-- Query details
-- Selected LLM
-- Retrieval metrics
-- Token usage
-- Estimated cost
-
-Example log output:
-```
-2025-01-15 10:23:45 | INFO     | core.chains | Query received | session_id=abc123 | query='What is...' | llm=azure_openai
-2025-01-15 10:23:45 | INFO     | core.retriever | Retrieved 5 documents | session_id=abc123 | confidence=0.847 | retrieval_ms=124.32
-2025-01-15 10:23:46 | INFO     | core.chains | LLM response | session_id=abc123 | llm=azure_openai | llm_ms=1523.45 | tokens=1234 | cost=$0.074520
-```
-
-### LangSmith Tracing
-
-When enabled (`LANGCHAIN_TRACING_V2=true`):
-- Full chain execution traces
-- Retrieval performance
-- LLM calls with inputs/outputs
-- Token usage per call
-- Error traces
-
-Access traces at: https://smith.langchain.com
-
----
-
-## 💾 Session Management
-
-### Current: In-Memory Store
-
-⚠️ **DEVELOPMENT ONLY**
-
-- Sessions stored in Python dictionary
-- Lost on application restart
-- Not suitable for production
-
-Logged warning on startup:
-```
-⚠️  DEVELOPMENT MODE: Using in-memory session store.
-Sessions will be lost on restart. Not suitable for production.
-```
-
-### Production Recommendations
-
-For production deployment, replace `core/memory.py` with:
-
-- **PostgreSQL**: `langchain_postgres.PostgresChatMessageHistory`
-- **MongoDB**: `langchain_mongodb.MongoDBChatMessageHistory`
-- **Redis**: `langchain_redis.RedisChatMessageHistory`
-
----
-
-## 🎨 UI Features
-
-### Chat Interface
-
-- ChatGPT-like design
-- Streaming responses (word-by-word)
-- Message history
-- Session management (clear/new)
-
-### Sidebar
-
-**Session Controls:**
-- Clear chat
-- New session
-- Session ID display
-
-**Source Citations Panel:**
-- Confidence score (color-coded)
-- Document count
-- Response timing (retrieval + LLM)
-- Selected LLM
-- Token usage (Azure OpenAI)
-- Estimated cost
-
-**Retrieved Sources:**
-- Expandable source cards
-- Metadata badges (filename, page, type)
-- Exact retrieved text (first 500 chars)
-
----
-
-## 🔧 Token Counting & Cost Estimation
-
-### Azure OpenAI Only
-
-Token counting and cost estimation using `tiktoken`:
+### Search Parameters (`ElasticSearch/config.py`)
 
 ```python
-{
-  "input_tokens": 1523,
-  "output_tokens": 342,
-  "total_tokens": 1865,
-  "estimated_cost_usd": 0.074520
-}
+CHUNK_SIZE = 2000           # Characters per chunk
+CHUNK_OVERLAP = 400         # Overlap between chunks
+EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+KNN_NUM_CANDIDATES = 100    # KNN search candidates
+KEYWORD_WEIGHT = 0.3        # BM25 weight in hybrid search
+SEMANTIC_WEIGHT = 0.7       # Vector weight in hybrid search
 ```
 
-### Pricing (Configurable)
+### RAG Parameters (`utils/config.py`)
 
-Default rates in `utils/token_counter.py`:
+```python
+RETRIEVAL_TOP_K = 10        # Documents to retrieve
+CONFIDENCE_THRESHOLD = 0.35 # Minimum confidence to answer
+MAX_QUERY_WORDS = 2000      # Query length limit
+```
 
-| Model | Input (per 1K) | Output (per 1K) |
-|-------|----------------|-----------------|
-| GPT-4 | $0.03 | $0.06 |
-| GPT-4 Turbo | $0.01 | $0.03 |
-| GPT-3.5 Turbo | $0.0015 | $0.002 |
+### LLM Routing
 
-**Note**: Adjust these rates based on your Azure OpenAI pricing.
-
----
-
-## 🚨 Error Handling
-
-### Startup Failures
-
-If health checks fail:
-1. Detailed error logging
-2. Application exits with error code
-3. No partial startup
-
-### Runtime Failures
-
-**Elasticsearch Errors:**
-- Log error
-- Return "I don't know..."
-- No crash
-
-**LLM Errors:**
-- Log error
-- Attempt Groq fallback (if Azure failed)
-- Return error message if all fail
-
-**Query Validation:**
-- Reject queries > 2000 words
-- Return user-friendly error message
+| Query Length | LLM Used |
+|--------------|----------|
+| < 10 words | Groq Llama 3.3 (fast) |
+| ≥ 10 words | Azure OpenAI GPT-4 (accurate) |
 
 ---
 
-## 📝 Maintenance
+## 📊 Logging
 
-### Updating LLM Models
+All modules use unified structured logging:
 
-Edit `.env`:
+```
+2026-01-01 21:41:56 | INFO     | core.chains | Query received | session_id=abc | query='What is...'
+2026-01-01 21:41:56 | INFO     | core.retriever | Retrieved 10 documents | confidence=0.82 | retrieval_ms=124
+2026-01-01 21:41:58 | INFO     | core.chains | LLM response | llm=azure_openai | tokens=1234 | cost=$0.074
+```
+
+---
+
+## 🔐 Security Notes
+
+- `.env` file is in `.gitignore` - never commit API keys
+- Elasticsearch uses HTTPS with authentication
+- XSS protection on all user-facing content
+- SHA256 hashing for document IDs
+
+---
+
+## �️ Troubleshooting
+
+### "No module named 'utils.config'"
+
+Set PYTHONPATH before running:
 ```bash
-# Switch Azure OpenAI deployment
-AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4-turbo
-
-# Switch Groq model
-GROQ_MODEL_NAME=mixtral-8x7b-32768
+$env:PYTHONPATH="."  # PowerShell
+export PYTHONPATH="."  # Bash
 ```
 
-Restart application.
+### "Failed to connect to Elasticsearch"
 
-### Adjusting RAG Parameters
+1. Check Elasticsearch is running: `curl -k https://localhost:9200`
+2. Verify credentials in `.env` (ES_PASSWORD)
 
-Edit `.env`:
+### "ModuleNotFoundError"
+
+Activate virtual environment:
 ```bash
-# Retrieve more documents
-RETRIEVAL_TOP_K=10
-
-# Lower confidence threshold (more lenient)
-CONFIDENCE_THRESHOLD=0.50
-
-# Increase max query length
-MAX_QUERY_WORDS=3000
+.venv\Scripts\activate  # Windows
+source .venv/bin/activate  # Linux/Mac
 ```
 
-Restart application.
+---
 
-### Monitoring
+## � Supported File Types
 
-1. **Check LangSmith**: View traces for debugging
-2. **Check Logs**: All operations are logged
-3. **Check Elasticsearch**: Monitor index health
+| Type | Extension | Extraction Method |
+|------|-----------|-------------------|
+| PDF | `.pdf` | PyMuPDF (text + OCR fallback) |
+| Word | `.docx` | python-docx |
+| Excel | `.xlsx`, `.xls` | pandas |
+| PowerPoint | `.pptx` | python-pptx |
+| Text | `.txt` | Direct read |
+| CSV | `.csv` | pandas |
 
 ---
 
-## 🛑 Production Checklist
+## 📝 License
 
-Before deploying to production:
-
-- [ ] Replace in-memory session store with persistent storage
-- [ ] Configure proper authentication for Elasticsearch
-- [ ] Set up HTTPS for all API endpoints
-- [ ] Configure rate limiting
-- [ ] Set up monitoring and alerting
-- [ ] Configure log aggregation
-- [ ] Review and adjust token limits
-- [ ] Review and adjust confidence thresholds
-- [ ] Set up backup and recovery
-- [ ] Configure secrets management (not .env files)
-- [ ] Set up load balancing (if needed)
-- [ ] Configure auto-scaling (if needed)
-
----
-
-## 📄 License
-
-[Your License Here]
+MIT License
 
 ## 🤝 Contributing
 
-[Your Contributing Guidelines Here]
+Pull requests welcome! Please follow the existing code style.
 
-## 📧 Support
+## � Contact
 
-[Your Support Contact Here]
+- GitHub: [@Aditya-Somasi](https://github.com/Aditya-Somasi)
 
 ---
 
-**Built with ❤️ using LangChain LCEL**
+**Built with ❤️ using LangChain, Elasticsearch, and Streamlit**
