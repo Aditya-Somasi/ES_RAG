@@ -43,9 +43,109 @@ def initialize_session_state():
         st.session_state.messages = []
 
 
+def scroll_to_bottom():
+    """
+    Auto-scroll to bottom of chat using JavaScript injection.
+    Uses smooth scrolling for better UX.
+    """
+    js = """
+    <script>
+        function scrollToBottom() {
+            // Try multiple selectors for compatibility
+            const selectors = [
+                'section.main',
+                '.stChatMessageContainer',
+                '[data-testid="stChatMessageContainer"]',
+                '.main .block-container'
+            ];
+            
+            for (const selector of selectors) {
+                const element = window.parent.document.querySelector(selector);
+                if (element) {
+                    element.scrollTo({
+                        top: element.scrollHeight,
+                        behavior: 'smooth'
+                    });
+                }
+            }
+            
+            // Also scroll the main document
+            window.parent.scrollTo({
+                top: window.parent.document.documentElement.scrollHeight,
+                behavior: 'smooth'
+            });
+        }
+        
+        // Run with multiple delays to handle dynamic content loading
+        scrollToBottom();
+        setTimeout(scrollToBottom, 50);
+        setTimeout(scrollToBottom, 150);
+        setTimeout(scrollToBottom, 300);
+        setTimeout(scrollToBottom, 500);
+    </script>
+    """
+    st.components.v1.html(js, height=0)
+
+
+def inject_auto_scroll_css():
+    """
+    Inject CSS for smooth scrolling behavior on the page.
+    This makes scrolling smoother throughout the app.
+    """
+    st.markdown("""
+    <style>
+        /* Enable smooth scrolling */
+        section.main, .stChatMessageContainer, html {
+            scroll-behavior: smooth;
+        }
+        
+        /* Keep chat input fixed at bottom */
+        [data-testid="stChatInput"] {
+            position: sticky;
+            bottom: 0;
+            background: var(--background-color);
+            z-index: 100;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+
 def sanitize_content(text: str) -> str:
     """Safely sanitize text for display."""
     return html.escape(str(text))
+
+
+def parse_thinking_response(answer: str) -> tuple[str, str]:
+    """
+    Parse response to extract thinking content (from Qwen3 models).
+    
+    Args:
+        answer: Raw LLM response that may contain <think>...</think> tags
+        
+    Returns:
+        (thinking_content, actual_answer) - thinking is empty string if not present
+    """
+    import re
+    
+    # Match <think>...</think> pattern (case-insensitive, handles newlines)
+    think_pattern = re.compile(r'<think>(.*?)</think>', re.DOTALL | re.IGNORECASE)
+    match = think_pattern.search(answer)
+    
+    if match:
+        thinking = match.group(1).strip()
+        # Remove the thinking block from the answer
+        actual_answer = think_pattern.sub('', answer).strip()
+        return thinking, actual_answer
+    
+    return "", answer
+
+
+def display_thinking_expander(thinking: str):
+    """Display thinking content in a collapsible expander."""
+    if thinking:
+        with st.expander("💭 Thinking...", expanded=False):
+            st.markdown(thinking)
+
 
 
 def display_sources_popover(documents: List[Document], metadata: Dict[str, Any]):
@@ -65,7 +165,7 @@ def display_sources_popover(documents: List[Document], metadata: Dict[str, Any])
         
         llm = metadata.get("selected_llm", "")
         if llm:
-            llm_name = "GPT-4" if llm == "azure_openai" else "Llama 3.3"
+            llm_name = "GPT-4" if llm == "azure_openai" else "Groq"
             st.caption(f"🤖 {llm_name}")
         
         st.divider()
@@ -92,13 +192,23 @@ def display_chat_history():
     """Display chat message history with inline sources."""
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
-            st.markdown(message["content"])
-            
-            # Show sources button for assistant messages
-            if message["role"] == "assistant" and message.get("sources"):
-                context, metadata = message["sources"]
-                if context:
-                    display_sources_popover(context, metadata)
+            if message["role"] == "assistant":
+                # Parse thinking content for Qwen3 responses
+                thinking, actual_content = parse_thinking_response(message["content"])
+                
+                # Show thinking expander if present
+                display_thinking_expander(thinking)
+                
+                # Show actual answer
+                st.markdown(actual_content)
+                
+                # Show sources button
+                if message.get("sources"):
+                    context, metadata = message["sources"]
+                    if context:
+                        display_sources_popover(context, metadata)
+            else:
+                st.markdown(message["content"])
 
 
 async def process_query(user_query: str):
@@ -115,6 +225,7 @@ async def process_query(user_query: str):
     
     # Display assistant response
     with st.chat_message("assistant"):
+        thinking_container = st.container()
         message_placeholder = st.empty()
         sources_container = st.container()
         
@@ -126,9 +237,16 @@ async def process_query(user_query: str):
                     st.session_state.session_id,
                 )
                 
-                answer = response.get("answer", "I don't know based on the available documents.")
+                raw_answer = response.get("answer", "I don't know based on the available documents.")
                 context = response.get("context", [])
                 metadata = response.get("metadata", {})
+                
+                # Parse thinking content (for Qwen3 models)
+                thinking, answer = parse_thinking_response(raw_answer)
+                
+                # Display thinking expander if present
+                with thinking_container:
+                    display_thinking_expander(thinking)
                 
                 # Smart streaming: stream by lines for tables, words for text
                 # This preserves markdown table formatting
@@ -162,14 +280,15 @@ async def process_query(user_query: str):
                 logger.error(f"Error: {e}")
                 import traceback
                 logger.error(traceback.format_exc())
-                answer = f"Error processing request: {str(e)}"
+                raw_answer = f"Error processing request: {str(e)}"
+                answer = raw_answer
                 message_placeholder.markdown(answer)
                 sources = ([], {"error": str(e)})
     
-    # Save to history
+    # Save to history (save raw answer with thinking for later display)
     st.session_state.messages.append({
         "role": "assistant",
-        "content": answer,
+        "content": raw_answer,  # Save full response including <think> tags
         "sources": sources,
     })
 
@@ -177,6 +296,7 @@ async def process_query(user_query: str):
 def main():
     """Main Streamlit app."""
     initialize_session_state()
+    inject_auto_scroll_css()  # Enable smooth scrolling
     
     # Header
     st.title("RAG Chatbot")
@@ -244,9 +364,14 @@ def main():
     # Chat history
     display_chat_history()
     
+    # Auto-scroll to bottom if there are messages
+    if st.session_state.messages:
+        scroll_to_bottom()
+    
     # Chat input
     if prompt := st.chat_input("Ask a question..."):
         asyncio.run(process_query(prompt))
+        scroll_to_bottom()  # Scroll after new message
         st.rerun()
 
 

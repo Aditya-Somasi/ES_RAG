@@ -31,7 +31,7 @@ class Config(BaseSettings):
     # Groq
     groq_api_key: str = Field(..., alias="GROQ_API_KEY")
     groq_model_name: str = Field(
-        default="llama-3.3-70b-versatile",
+        default="qwen/qwen3-32b",
         alias="GROQ_MODEL_NAME"
     )
     

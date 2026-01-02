@@ -7,6 +7,8 @@ Uses PyMuPDF for better PDF extraction and RecursiveCharacterTextSplitter for se
 """
 
 import os
+import sys
+import importlib.util
 from typing import List, Dict, Any
 from pathlib import Path
 import fitz
@@ -16,7 +18,26 @@ from docx import Document
 import pandas as pd
 from pptx import Presentation
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from utils import setup_logging, clean_text, count_words, get_file_size
+
+# Add ElasticSearch directory to path and load local utils
+_current_dir = os.path.dirname(os.path.abspath(__file__))
+_project_root = os.path.dirname(_current_dir)
+if _current_dir not in sys.path:
+    sys.path.insert(0, _current_dir)
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
+
+# Load local ElasticSearch/utils.py using importlib to avoid conflict with utils/ package
+_es_utils_path = os.path.join(_current_dir, "utils.py")
+_es_utils_spec = importlib.util.spec_from_file_location("es_utils", _es_utils_path)
+_es_utils = importlib.util.module_from_spec(_es_utils_spec)
+_es_utils_spec.loader.exec_module(_es_utils)
+
+setup_logging = _es_utils.setup_logging
+clean_text = _es_utils.clean_text
+count_words = _es_utils.count_words
+get_file_size = _es_utils.get_file_size
+
 from config import EXCEL_MAX_ROWS_PER_SHEET, EXCEL_CHUNK_ROWS
 
 logger = setup_logging(__name__)
@@ -60,6 +81,45 @@ class DocumentProcessor:
         chunk_id = self.global_chunk_counter
         self.global_chunk_counter += 1
         return chunk_id
+    
+    def _check_text_quality(self, text: str) -> tuple[bool, str]:
+        """
+        Check if text is of acceptable quality (not corrupted OCR).
+        
+        Detects patterns like "T he la y er" (broken words from bad PDF extraction).
+        
+        Returns:
+            (is_good_quality, reason)
+        """
+        if not text or len(text.strip()) < 20:
+            return False, "Text too short"
+        
+        # Count single-character "words" (excluding common ones like 'I', 'a')
+        words = text.split()
+        if not words:
+            return False, "No words found"
+        
+        single_char_words = [w for w in words if len(w) == 1 and w.lower() not in ('i', 'a', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '/', '(', ')', '.')]
+        single_char_ratio = len(single_char_words) / len(words)
+        
+        # If more than 15% of words are single characters, it's likely bad OCR
+        if single_char_ratio > 0.15:
+            return False, f"Too many single-char words ({single_char_ratio:.1%}), likely bad OCR"
+        
+        # Check for consecutive single-char patterns like "T h e"
+        consecutive_singles = 0
+        max_consecutive = 0
+        for word in words:
+            if len(word) == 1:
+                consecutive_singles += 1
+                max_consecutive = max(max_consecutive, consecutive_singles)
+            else:
+                consecutive_singles = 0
+        
+        if max_consecutive >= 4:
+            return False, f"Found {max_consecutive} consecutive single-char words (broken text)"
+        
+        return True, "OK"
     
     
     def process_file(self, file_path: str) -> List[Dict[str, Any]]:
@@ -133,6 +193,12 @@ class DocumentProcessor:
                 page_chunks = self.text_splitter.split_text(text_for_chunking)
 
                 for chunk_idx, chunk in enumerate(page_chunks):
+                    # Quality check - skip badly-extracted text
+                    is_good, reason = self._check_text_quality(chunk)
+                    if not is_good:
+                        logger.warning(f"Skipping chunk from page {page_num + 1}: {reason}")
+                        continue
+                    
                     chunk_position = (
                         "beginning" if chunk_idx == 0 else
                         "end" if chunk_idx == len(page_chunks) - 1 else

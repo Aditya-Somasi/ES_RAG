@@ -7,12 +7,28 @@ Handles batch processing and caching for efficient embedding generation
 """
 
 import os
+import sys
+import importlib.util
 from typing import List, Dict, Any, Optional
 import numpy as np
 from sentence_transformers import SentenceTransformer
 import torch
 
-from utils import setup_logging
+# Add ElasticSearch directory to path and load local utils
+_current_dir = os.path.dirname(os.path.abspath(__file__))
+_project_root = os.path.dirname(_current_dir)
+if _current_dir not in sys.path:
+    sys.path.insert(0, _current_dir)
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
+
+# Load local ElasticSearch/utils.py using importlib to avoid conflict with utils/ package
+_es_utils_path = os.path.join(_current_dir, "utils.py")
+_es_utils_spec = importlib.util.spec_from_file_location("es_utils", _es_utils_path)
+_es_utils = importlib.util.module_from_spec(_es_utils_spec)
+_es_utils_spec.loader.exec_module(_es_utils)
+setup_logging = _es_utils.setup_logging
+
 from config import EMBEDDING_MODEL, EMBEDDING_DIM, EMBEDDING_BATCH_SIZE
 
 logger = setup_logging(__name__)
