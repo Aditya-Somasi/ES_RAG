@@ -9,7 +9,7 @@ A production-ready Retrieval-Augmented Generation (RAG) chatbot that lets you as
 ## ✨ Features
 
 - **Hybrid Search** - Combined BM25 + semantic vector search with intelligent reranking
-- **Multi-LLM Routing** - Azure OpenAI for complex queries, Groq Llama for fast responses
+- **Multi-LLM Routing** - Azure OpenAI for complex queries, Groq qwen3-32b for fast responses
 - **Conversation Memory** - SQLite-backed persistent chat history with 24h TTL
 - **Document Ingestion** - Process PDF, DOCX, XLSX, PPTX, TXT, CSV files
 - **Real-time Streaming** - ChatGPT-like word-by-word response display
@@ -234,7 +234,7 @@ MAX_QUERY_WORDS = 2000      # Query length limit
 
 | Query Length | LLM Used |
 |--------------|----------|
-| < 10 words | Groq Llama 3.3 (fast) |
+| < 10 words | Groq qwen3-32b (fast) |
 | ≥ 10 words | Azure OpenAI GPT-4 (accurate) |
 
 ---

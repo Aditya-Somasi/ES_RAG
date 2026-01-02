@@ -306,7 +306,7 @@ def main():
     st.markdown("---")
     st.header("Search Documents")
     
-    query = st.text_input("Enter your search query", placeholder="e.g., What is the company's vacation policy?")
+    query = st.text_input("Enter your search query")
     
     with st.expander("Advanced Options"):
         col1, col2 = st.columns(2)

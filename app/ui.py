@@ -371,7 +371,7 @@ def main():
         # Settings info
         with st.expander("ℹ️ About", expanded=False):
             st.caption("**Model Routing:**")
-            st.caption("• Short queries → Groq Llama 3.3")
+            st.caption("• Short queries → Groq qwen3-32b ")
             st.caption("• Long queries → Azure GPT-4")
             st.caption("**Retrieval:** Hybrid BM25 + Semantic")
     
