@@ -14,6 +14,12 @@ from core.memory import get_session_store, get_session_history
 from utils.config import config
 from utils.logging import setup_logger, log_query, log_retrieval, log_llm_response
 from utils.token_counter import TokenCounter
+from utils.tracing import (
+    get_rag_callbacks,
+    create_run_metadata,
+    is_tracing_enabled,
+    RAGCallbackHandler,
+)
 
 
 logger = setup_logger(__name__)
@@ -293,13 +299,26 @@ Answer:"""
             # Add current query
             messages.append(HumanMessage(content=query))
             
-            # 7. Select LLM and invoke directly (no prompt template needed)
+            # 7. Select LLM and invoke with callbacks for LangSmith tracing
             llm = self.groq_llm if selected_llm == "groq" else self.azure_llm
             
             llm_start = time.time()
             
-            # Invoke LLM with Message objects directly
-            response = await llm.ainvoke(messages)
+            # Create callbacks for tracing
+            run_metadata = create_run_metadata(
+                session_id=session_id,
+                query=query,
+                selected_llm=selected_llm,
+                confidence=confidence,
+                doc_count=len(documents),
+            )
+            callbacks = get_rag_callbacks(session_id, metadata=run_metadata)
+            
+            # Invoke LLM with callbacks (enables LangSmith tracing)
+            response = await llm.ainvoke(
+                messages,
+                config={"callbacks": callbacks, "metadata": run_metadata},
+            )
             answer = response.content
             
             llm_ms = (time.time() - llm_start) * 1000

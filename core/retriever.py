@@ -13,6 +13,15 @@ from langchain_core.retrievers import BaseRetriever
 from langchain_core.callbacks import CallbackManagerForRetrieverRun
 from utils.config import config
 from utils.logging import setup_logger
+from utils.tracing import is_tracing_enabled, create_run_metadata
+
+# LangSmith traceable decorator (optional)
+try:
+    from langsmith import traceable
+    LANGSMITH_AVAILABLE = True
+except ImportError:
+    LANGSMITH_AVAILABLE = False
+    traceable = lambda *args, **kwargs: lambda fn: fn  # No-op
 
 
 logger = setup_logger(__name__)

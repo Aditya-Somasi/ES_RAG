@@ -19,6 +19,7 @@ from langchain_core.documents import Document
 from core.chains import get_rag_chain
 from core.memory import get_session_store
 from utils.logging import setup_logger
+from utils.tracing import submit_feedback, is_tracing_enabled
 
 
 logger = setup_logger(__name__)
