@@ -248,27 +248,40 @@ async def process_query(user_query: str):
                 with thinking_container:
                     display_thinking_expander(thinking)
                 
+                # Scroll to show the assistant's response area
+                scroll_to_bottom()
+                
                 # Smart streaming: stream by lines for tables, words for text
                 # This preserves markdown table formatting
+                word_count = 0
                 if '|' in answer and '---' in answer:
                     # Likely contains a table - stream by lines
                     lines = answer.split('\n')
                     displayed = ""
-                    for line in lines:
+                    for i, line in enumerate(lines):
                         displayed += line + "\n"
                         message_placeholder.markdown(displayed + "▌")
                         await asyncio.sleep(0.05)
+                        # Scroll every few lines to follow content
+                        if i % 3 == 0:
+                            scroll_to_bottom()
                 else:
                     # Regular text - stream by words
                     words = answer.split()
                     displayed = ""
-                    for word in words:
+                    for i, word in enumerate(words):
                         displayed += word + " "
                         message_placeholder.markdown(displayed + "▌")
                         await asyncio.sleep(0.02)
+                        # Scroll periodically to follow content (every 20 words)
+                        if i % 20 == 0:
+                            scroll_to_bottom()
                 
                 # Final answer without cursor
                 message_placeholder.markdown(answer)
+                
+                # Final scroll to ensure sources are visible
+                scroll_to_bottom()
                 
                 # Display sources popover
                 with sources_container:
